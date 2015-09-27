@@ -1,0 +1,117 @@
+LIBRARY IEEE;
+USE IEEE.STD_LOGIC_1164.ALL;
+
+ENTITY CONTROL IS
+	PORT(RUN: IN STD_LOGIC;
+			 RESETN: IN STD_LOGIC;
+			 INS: IN STD_LOGIC_VECTOR(0 TO 8); -- TO OR DOWNTO?
+			 CNT: IN STD_LOGIC_VECTOR(1 DOWNTO 0);
+			 A_IN: OUT STD_LOGIC;
+			 CLR: OUT STD_LOGIC;
+			 DONE: OUT STD_LOGIC;
+			 DIN_OUT: OUT STD_LOGIC;
+			 G_IN: OUT STD_LOGIC;
+			 G_OUT: OUT STD_LOGIC;
+			 IR_IN: OUT STD_LOGIC;
+			 R_IN: OUT STD_LOGIC_VECTOR(0 TO 7);
+			 R_OUT: OUT STD_LOGIC_VECTOR(0 TO 7); -- TO OR DOWNTO?
+			 ADDSUB: OUT STD_LOGIC);
+END CONTROL;
+
+ARCHITECTURE BEHV OF CONTROL IS
+	COMPONENT DECODER_3_8
+		PORT (I: IN STD_LOGIC_VECTOR(2 DOWNTO 0);
+					O: OUT STD_LOGIC_VECTOR(0 TO 7));
+	END COMPONENT;
+	-- THESE ARE ENABLES. WE AND THEM WITH THINGS.
+	SIGNAL RX_OUT: STD_LOGIC;
+	SIGNAL RY_OUT: STD_LOGIC;
+	SIGNAL RX_IN: STD_LOGIC;
+	SIGNAL I: STD_LOGIC_VECTOR(0 TO 2);
+	SIGNAL RX: STD_LOGIC_VECTOR(2 DOWNTO 0);
+	SIGNAL RY: STD_LOGIC_VECTOR(2 DOWNTO 0);
+	
+	-- INDIVIDUAL ENABLES, OUTPUT BY THE DECODERS.
+	SIGNAL RX_DEC: STD_LOGIC_VECTOR(0 TO 7);
+	SIGNAL RY_DEC: STD_LOGIC_VECTOR(0 TO 7);
+BEGIN
+	I(0) <= INS(0);
+	I(1) <= INS(1);
+	I(2) <= INS(2);
+	RX(2) <= INS(3);
+	RX(1) <= INS(4);
+	RX(0) <= INS(5);
+	RY(2) <= INS(6);
+	RY(1) <= INS(7);
+	RY(0) <= INS(8);
+	
+	-- MV  000
+	-- MVI 001 
+  -- ADD 010
+  -- SUB 011
+
+	DEC_X: DECODER_3_8 PORT MAP(RX, RX_DEC);
+	DEC_Y: DECODER_3_8 PORT MAP(RY, RY_DEC);
+
+		-- ENABLE THE APPROPRIATE ENABLES FOR EACH TIME STEP
+		-- THIS IS A TRANSCRIPTION OF FIG. 3
+		
+		-- WHEN CNT IS "00" SET IR_IN TO '1'
+		IR_IN <=  '1' WHEN ((CNT = "00") AND (RESETN = '0'))
+		           ELSE '0';
+		-- DEALING WITH RY_OUT
+		RY_OUT <= '1' WHEN (CNT = "01") AND (I = "000") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "10") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "10") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH RX_OUT
+		RX_OUT <= '1' WHEN (CNT = "01") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "01") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH RX_IN
+		RX_IN <=  '1' WHEN (CNT = "01") AND (I = "000") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "01") AND (I = "001") AND (RESETN = '0') ELSE -- supposed to be 01
+		          '1' WHEN (CNT = "11") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH CLR
+		CLR <=    '1' WHEN (RUN='0' AND RESETN='0') ELSE
+		          '1' WHEN (CNT = "01") AND (I = "000") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "10") AND (I = "001") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "000") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH G_OUT
+		G_OUT <=  '1' WHEN (CNT = "11") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+			 -- DEALING WITH ADDSUB
+		ADDSUB <= '1' WHEN (CNT = "10") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH A_IN
+		A_IN <=   '1' WHEN (CNT = "01") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "01") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH G_IN
+		G_IN <=   '1' WHEN (CNT = "10") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "10") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+		 -- DEALING WITH DIN_OUT
+		DIN_OUT <='1' WHEN (CNT = "01") AND (I = "001") AND (RESETN = '0') -- supposed to be 10
+		          ELSE '0';
+		 -- DEALING WITH DONE
+		DONE <=   '1' WHEN (CNT = "01") AND (I = "000") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "10") AND (I = "001") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "010") AND (RESETN = '0') ELSE
+		          '1' WHEN (CNT = "11") AND (I = "011") AND (RESETN = '0')
+		          ELSE '0';
+
+	-- NOW, HANDLE THE INDIVIDUAL REGISTER ENABLES
+	PROCESS (RUN, RESETN, INS, CNT, RX_OUT, RY_OUT, RX_IN, I, RX, RY, RX_DEC, RY_DEC)
+	 BEGIN
+ 	  FOR J IN 0 TO 7 LOOP
+			R_OUT(J) <= (RX_OUT AND RX_DEC(J)) OR (RY_OUT AND RY_DEC(J));
+			R_IN(J) <= RX_IN AND RX_DEC(J);
+		END LOOP;
+	END PROCESS;
+END BEHV;
